@@ -1,1 +1,320 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
 
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetal Health Prediction</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 50 Q 50 100 100 50" stroke="rgba(249, 115, 22, 0.2)" stroke-width="2" fill="none"/></svg>') repeat;
+            background-size: 100px 100px;
+        }
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-lg max-w-3xl w-full border-t-4 border-orange-500">
+        <h2 class="text-2xl font-bold text-center mb-6 text-orange-600 flex items-center justify-center">
+            <i class="fa-solid fa-heart-pulse text-orange-600 mr-2"></i>
+            Fetal Health Prediction
+        </h2>
+        <form id="prediction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Select Model:</label>
+                <select name="model" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
+                    <option value="logistic">Logistic Regression</option>
+                    <option value="knn">KNN</option>
+                    <option value="randomforest" selected>Random Forest</option>
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <div id="error-message" class="text-red-500 text-center hidden"></div>
+            </div>
+
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-heartbeat text-orange-500 mr-1"></i> Baseline Value (FHR, bpm)
+                </label>
+                <input type="number" name="baseline value" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="120.0">
+                <span class="tooltiptext">Fetal heart rate baseline (beats per minute)</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-arrow-up text-orange-500 mr-1"></i> Accelerations (per second)
+                </label>
+                <input type="number" name="accelerations" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of accelerations per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-baby text-orange-500 mr-1"></i> Fetal Movement (per second)
+                </label>
+                <input type="number" name="fetal_movement" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of fetal movements per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-compress text-orange-500 mr-1"></i> Uterine Contractions (per second)
+                </label>
+                <input type="number" name="uterine_contractions" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of uterine contractions per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-arrow-down text-orange-500 mr-1"></i> Light Decelerations (per second)
+                </label>
+                <input type="number" name="light_decelerations" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of light decelerations per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-arrow-down text-orange-500 mr-1"></i> Severe Decelerations (per second)
+                </label>
+                <input type="number" name="severe_decelerations" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of severe decelerations per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-arrow-down text-orange-500 mr-1"></i> Prolonged Decelerations (per second)
+                </label>
+                <input type="number" name="prolongued_decelerations" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of prolonged decelerations per second</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-exclamation-circle text-orange-500 mr-1"></i> Abnormal Short-Term Variability (%)
+                </label>
+                <input type="number" name="abnormal_short_term_variability" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="73.0">
+                <span class="tooltiptext">Percentage of time with abnormal short-term variability</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-line text-orange-500 mr-1"></i> Mean Short-Term Variability
+                </label>
+                <input type="number" name="mean_value_of_short_term_variability" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.5">
+                <span class="tooltiptext">Mean value of short-term variability</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-exclamation-circle text-orange-500 mr-1"></i> Abnormal Long-Term Variability (%)
+                </label>
+                <input type="number" name="percentage_of_time_with_abnormal_long_term_variability" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="43.0">
+                <span class="tooltiptext">Percentage of time with abnormal long-term variability</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-line text-orange-500 mr-1"></i> Mean Long-Term Variability
+                </label>
+                <input type="number" name="mean_value_of_long_term_variability" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="2.4">
+                <span class="tooltiptext">Mean value of long-term variability</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Width
+                </label>
+                <input type="number" name="histogram_width" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="64.0">
+                <span class="tooltiptext">Width of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Min
+                </label>
+                <input type="number" name="histogram_min" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="62.0">
+                <span class="tooltiptext">Minimum value of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Max
+                </label>
+                <input type="number" name="histogram_max" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="126.0">
+                <span class="tooltiptext">Maximum value of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Number of Peaks
+                </label>
+                <input type="number" name="histogram_number_of_peaks" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="2.0">
+                <span class="tooltiptext">Number of peaks in the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Number of Zeroes
+                </label>
+                <input type="number" name="histogram_number_of_zeroes" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="0.0">
+                <span class="tooltiptext">Number of zeroes in the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Mode
+                </label>
+                <input type="number" name="histogram_mode" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="120.0">
+                <span class="tooltiptext">Mode of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Mean
+                </label>
+                <input type="number" name="histogram_mean" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="137.0">
+                <span class="tooltiptext">Mean of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Median
+                </label>
+                <input type="number" name="histogram_median" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="121.0">
+                <span class="tooltiptext">Median of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Variance
+                </label>
+                <input type="number" name="histogram_variance" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="73.0">
+                <span class="tooltiptext">Variance of the FHR histogram</span>
+            </div>
+            <div class="tooltip">
+                <label class="block text-sm font-medium text-gray-700 flex items-center">
+                    <i class="fa-solid fa-chart-bar text-orange-500 mr-1"></i> Histogram Tendency
+                </label>
+                <input type="number" name="histogram_tendency" step="any" required class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500" value="1.0">
+                <span class="tooltiptext">Tendency of the FHR histogram (-1, 0, 1)</span>
+            </div>
+
+            <div class="md:col-span-2 flex justify-center gap-4">
+                <button type="submit" id="predict-btn" class="bg-orange-500 text-white px-6 py-2 rounded-md font-bold hover:bg-orange-600 disabled:bg-gray-400">
+                    <i class="fa-solid fa-stethoscope mr-2"></i> Predict Health Status
+                </button>
+                <button type="button" id="reset-btn" class="bg-gray-500 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">
+                    <i class="fa-solid fa-undo mr-2"></i> Reset
+                </button>
+            </div>
+            <div class="md:col-span-2 text-center">
+                <div id="loading" class="hidden mt-2">
+                    <svg class="animate-spin h-5 w-5 text-orange-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                </div>
+            </div>
+        </form>
+        <div id="result" class="mt-6 text-center font-bold text-lg"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('prediction-form');
+        const predictBtn = document.getElementById('predict-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            for (const [key, value] of Object.entries(data)) {
+                if (key === 'model') continue;
+                if (value === '' || isNaN(value)) {
+                    errorMessage.textContent = `Please enter a valid number for ${key}`;
+                    errorMessage.classList.remove('hidden');
+                    return;
+                }
+            }
+
+            errorMessage.classList.add('hidden');
+            predictBtn.disabled = true;
+            loading.classList.remove('hidden');
+            resultDiv.textContent = '';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.error) {
+                    errorMessage.textContent = `Error: ${result.error}`;
+                    errorMessage.classList.remove('hidden');
+                } else {
+                    resultDiv.innerHTML = `Fetal Health Status: ${result.health_status} (Prediction: ${result.prediction})<br><span class="text-sm text-gray-500">Confidence: ${result.confidence}</span>`;
+                    resultDiv.classList.add('text-orange-600');
+                }
+            } catch (error) {
+                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+            } finally {
+                predictBtn.disabled = false;
+                loading.classList.add('hidden');
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            form.reset();
+            errorMessage.classList.add('hidden');
+            resultDiv.textContent = '';
+            form.querySelector('select[name="model"]').value = 'randomforest';
+        });
+    </script>
+</body>
+</html>
