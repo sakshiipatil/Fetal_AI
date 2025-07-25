@@ -1,6 +1,6 @@
-# Fetal Health Analyzer - Orange Edition
+# Fetal Health Analyzer
 
-Created by Sakshi Patil, this Fetal Health Analyzer is a cutting-edge web tool built to assess fetal health using machine learning. Launched on July 25, 2025, at 04:32 PM IST, this version features a vibrant orange theme, a two-column design, and advanced prediction capabilities.
+Created by Sakshi Patil, this Fetal Health Analyzer is a cutting-edge web tool built to assess fetal health using machine learning.
 
 ## Introduction
 
@@ -17,7 +17,7 @@ This application leverages data from fetal heart rate (FHR) parameters to predic
 ## File Organization
 
 ```
-fetal-health-copy5/
+fetal-health/
 ├── app.py              # Core Flask app with prediction functionality
 ├── requirements.txt    # List of required Python packages
 ├── fetal_health.csv    # Input dataset for model training
@@ -66,12 +66,6 @@ fetal-health-copy5/
 - **Design Elements**: Poppins font, Font Awesome icons
 - **Data Source**: `fetal_health.csv`
 
-## Visuals
-
-![Main Interface](https://github.com/your-username/fetal-health-copy5/blob/main/images/interface.png)  
-![Result View](https://github.com/your-username/fetal-health-copy5/blob/main/images/result.png)  
-*(Update with your actual image URLs.)*
-
 ## Contribution Guidelines
 
 Open to enhancements! Fork the repo, tweak the code, and submit a pull request. Ideas for new features or UI improvements are appreciated.
@@ -79,7 +73,3 @@ Open to enhancements! Fork the repo, tweak the code, and submit a pull request. 
 ## Licensing
 
 Distributed under the MIT License. Check the `LICENSE` file for more info (create one if needed).
-
-## Get in Touch
-
-Questions? Contact Sakshi Patil at sakshi.patil@example.com.
